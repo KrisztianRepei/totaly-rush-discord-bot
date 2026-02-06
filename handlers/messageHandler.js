@@ -157,7 +157,7 @@ ${reason}`
 
 /* =======================
    ADMIN: REPORT STATS
-======================= */
+======================= */    
 export async function handleReportStats(message) {
   if (!message.content.toLowerCase().startsWith("reportstats")) return;
 
@@ -171,13 +171,24 @@ export async function handleReportStats(message) {
   }
 
   const active = cleanExpiredReports(reported.id);
+
   if (active.length === 0) {
     return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
   }
 
   const reasons = active
     .map(r =>
-      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
+      `• ${r.reason} — <t:${Math.floor(r.time / 1000)}:R>`
     )
-    .
+    .join("\n");
+
+  await message.reply(
+`📊 **REPORT STATISZTIKA**
+
+👤 Játékos: ${reported}
+📌 Aktív reportok: **${active.length}**
+
+📝 **Indokok:**
+${reasons}`
+  );
 }
