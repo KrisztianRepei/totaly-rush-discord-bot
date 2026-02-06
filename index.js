@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
+import { handleMessage } from "./handlers/messageHandler.js";
+import { handleInteraction } from "./handlers/interactionHandler.js";
 
 const client = new Client({
   intents: [
@@ -11,5 +13,8 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`ONLINE: ${client.user.tag}`);
 });
+
+client.on("messageCreate", handleMessage);
+client.on("interactionCreate", handleInteraction);
 
 client.login(process.env.DISCORD_TOKEN);
