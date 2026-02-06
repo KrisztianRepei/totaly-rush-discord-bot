@@ -15,6 +15,7 @@ export async function handleInteraction(interaction) {
 
     const data = {
       room: interaction.fields.getTextInputValue("room"),
+      players: interaction.fields.getTextInputValue("players"),
       elo: interaction.fields.getTextInputValue("elo"),
       role: interaction.fields.getTextInputValue("role")
     };
