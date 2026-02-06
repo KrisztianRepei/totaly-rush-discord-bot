@@ -2,9 +2,9 @@ import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
 
 export const lfpMessageCache = new Map();
 const reportCooldowns = new Map();
-const reportCounts = new Map(); 
-const reportReasons = new Map();
-const alertedUsers = new Set(); 
+const reportCounts = new Map();     
+const reportReasons = new Map();    
+const alertedUsers = new Set();     
 
 const LFP_CHANNELS = [
   "1467188892863168716",
@@ -13,8 +13,10 @@ const LFP_CHANNELS = [
 
 const REPORT_CHANNEL_ID = process.env.REPORT_INPUT_CHANNEL_ID;
 const ADMIN_REPORT_CHANNEL_ID = process.env.REPORT_ADMIN_CHANNEL_ID;
+const MOD_ROLE_ID = process.env.MOD_ROLE_ID;
 
 const COOLDOWN_TIME = 10 * 60 * 1000; // 10 perc
+const ALERT_THRESHOLD = Number(process.env.REPORT_ALERT_THRESHOLD || 3);
 
 export async function handleMessage(message, client) {
   if (message.author.bot) return;
@@ -37,7 +39,7 @@ export async function handleMessage(message, client) {
   /* =======================
      REPORT COMMAND
   ======================= */
-  if (!message.content.startsWith("report")) return;
+  if (!message.content.toLowerCase().startsWith("report")) return;
   if (message.channel.id !== REPORT_CHANNEL_ID) {
     return message.reply("❌ A report parancs csak a #report szobában használható.");
   }
@@ -62,11 +64,13 @@ export async function handleMessage(message, client) {
   }
   reportCooldowns.set(message.author.id, Date.now());
 
-  // 📢 admin csatorna
   const adminChannel = await client.channels.fetch(ADMIN_REPORT_CHANNEL_ID);
 
+  /* =======================
+     REPORT LOG (ADMIN)
+  ======================= */
   await adminChannel.send(
-    `🚨 **ÚJ JÁTÉKOS REPORT**
+`🚨 **ÚJ JÁTÉKOS REPORT**
 
 👤 Jelentett: ${reported}
 🧑 Jelentette: ${message.author}
@@ -76,7 +80,44 @@ export async function handleMessage(message, client) {
 ${reason}`
   );
 
-  // 🧹 user parancs törlése (opcionális)
+  /* =======================
+     REPORT SZÁMLÁLÁS + INDOK GYŰJTÉS
+  ======================= */
+  const reportedId = reported.id;
+
+  const newCount = (reportCounts.get(reportedId) || 0) + 1;
+  reportCounts.set(reportedId, newCount);
+
+  const reasons = reportReasons.get(reportedId) || [];
+  reasons.push(reason);
+  reportReasons.set(reportedId, reasons);
+
+  /* =======================
+     🚨 AUTOMATIKUS MOD ALERT
+  ======================= */
+  if (newCount >= ALERT_THRESHOLD && !alertedUsers.has(reportedId)) {
+    alertedUsers.add(reportedId);
+
+    const formattedReasons = reasons
+      .map(r => `• ${r}`)
+      .join("\n");
+
+    await adminChannel.send(
+`🚨 **ALERT – TÖBB REPORT**
+
+👤 Játékos: ${reported}
+📊 Reportok száma: **${newCount}**
+
+📝 **Indokok:**
+${formattedReasons}
+
+⏱ Időpont: <t:${Math.floor(Date.now() / 1000)}:F>
+
+<@&${MOD_ROLE_ID}>`
+    );
+  }
+
+  // 🧹 user parancs törlése
   await message.delete().catch(() => {});
 
   // ✅ visszajelzés
