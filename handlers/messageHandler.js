@@ -34,7 +34,7 @@ export async function handleMessage(message, client) {
   /* =======================
      REPORT COMMAND
   ======================= */
-  if (!message.content.startsWith("!report")) return;
+  if (!message.content.startsWith("report")) return;
   if (message.channel.id !== REPORT_CHANNEL_ID) {
     return message.reply("❌ A report parancs csak a #report szobában használható.");
   }
@@ -44,7 +44,7 @@ export async function handleMessage(message, client) {
   const reason = args.slice(1).join(" ");
 
   if (!reported || !reason) {
-    return message.reply("❌ Használat: `!report @játékos indok`");
+    return message.reply("❌ Használat: `report @játékos indok`");
   }
 
   // 🚫 önreport tiltás
