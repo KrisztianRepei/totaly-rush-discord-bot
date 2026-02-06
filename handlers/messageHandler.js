@@ -53,6 +53,48 @@ export async function handleMessage(message, client) {
     return message.reply("❌ Használat: `report @játékos indok`");
   }
 
+  /* =======================
+   REPORT STATS (ADMIN)
+======================= */
+if (message.content.toLowerCase().startsWith("reportstats")) {
+
+  // 🔐 role check
+  if (!message.member.roles.cache.has(process.env.MOD_ROLE_ID)) {
+    return message.reply("❌ Ehhez a parancshoz nincs jogosultságod.");
+  }
+
+  const reported = message.mentions.users.first();
+  if (!reported) {
+    return message.reply("❌ Használat: `reportstats @játékos`");
+  }
+
+  const reportedId = reported.id;
+  const reasons = reportReasons.get(reportedId) || [];
+  const count = reasons.length;
+
+  if (count === 0) {
+    return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
+  }
+
+  const formattedReasons = reasons
+    .map(r =>
+      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
+    )
+    .join("\n");
+
+  return message.reply(
+`📊 **REPORT STATISZTIKA**
+
+👤 Játékos: ${reported}
+📌 Aktív reportok: **${count}**
+🚨 Alert volt: ${alertedUsers.has(reportedId) ? "Igen" : "Nem"}
+
+📝 **Indokok (1 héten belül):**
+${formattedReasons}`
+  );
+}
+
+  
   // 🚫 önreport tiltás
   if (reported.id === message.author.id) {
     return message.reply("❌ Saját magadat nem jelentheted.");
