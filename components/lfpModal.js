@@ -10,10 +10,10 @@ export function lfpModal(lang) {
     .setCustomId(`lfp_modal_${lang}`)
     .setTitle(lang === "hu" ? "LFP adatok" : "LFP details")
     .addComponents(
-      input("room", lang === "hu" ? "Szoba száma" : "Room number"),
+      input("room", lang === "hu" ? "Szoba" : "Room"),
       input("players", lang === "hu" ? "Hány játékos?" : "Players needed"),
-      input("rank", lang === "hu" ? "Rang" : "Rank"),
-      input("roles", lang === "hu" ? "Pozíció(k)" : "Roles")
+      input("elo", lang === "hu" ? "Elo / Rang" : "Elo / Rank"),
+      input("role", lang === "hu" ? "Pozíció" : "Role")
     );
 }
 
