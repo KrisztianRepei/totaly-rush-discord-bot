@@ -11,7 +11,8 @@ export async function handleMessage(message) {
   if (message.content.toLowerCase() !== "lfp") return;
 
   await message.reply({
-    content: "Válaszd ki a nyelvet / Choose language 👇",
+    content: "🌍 Válaszd ki a nyelvet / Choose language",
     components: [lfpLanguageMenu]
   });
 }
+
