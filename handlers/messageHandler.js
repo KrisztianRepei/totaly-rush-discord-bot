@@ -3,6 +3,7 @@ import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
 export const lfpMessageCache = new Map();
 const reportCooldowns = new Map();
 const reportCounts = new Map(); 
+const reportReasons = new Map();
 const alertedUsers = new Set(); 
 
 const LFP_CHANNELS = [
