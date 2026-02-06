@@ -5,6 +5,7 @@ const reportCooldowns = new Map();
 const reportCounts = new Map();     
 const reportReasons = new Map();    
 const alertedUsers = new Set();     
+const REPORT_EXPIRY_TIME = 7 * 24 * 60 * 60 * 1000; 
 
 const LFP_CHANNELS = [
   "1467188892863168716",
@@ -80,6 +81,21 @@ export async function handleMessage(message, client) {
 ${reason}`
   );
 
+const now = Date.now();
+
+// 🧹 elévült reportok kiszűrése
+const validReasons = (reportReasons.get(reportedId) || [])
+  .filter(r => now - r.time < REPORT_EXPIRY_TIME);
+
+if (validReasons.length === 0) {
+  reportReasons.delete(reportedId);
+  reportCounts.delete(reportedId);
+  alertedUsers.delete(reportedId);
+} else {
+  reportReasons.set(reportedId, validReasons);
+  reportCounts.set(reportedId, validReasons.length);
+}
+  
   /* =======================
      REPORT SZÁMLÁLÁS + INDOK GYŰJTÉS
   ======================= */
@@ -89,7 +105,10 @@ ${reason}`
   reportCounts.set(reportedId, newCount);
 
   const reasons = reportReasons.get(reportedId) || [];
-  reasons.push(reason);
+  reasons.push({
+  reason,
+  time: Date.now()
+});
   reportReasons.set(reportedId, reasons);
 
   /* =======================
@@ -99,7 +118,7 @@ ${reason}`
     alertedUsers.add(reportedId);
 
     const formattedReasons = reasons
-      .map(r => `• ${r}`)
+      .map(r => `• ${r.reason}`)
       .join("\n");
 
     await adminChannel.send(
