@@ -1,12 +1,13 @@
-export function buildLfpMessage(lang, d) {
+export function buildLfpMessage(lang, d, user) {
   if (lang === "hu") {
     return `🔊 | 𝑷𝒓𝒆𝒎𝒊𝒆𝒓 #${d.room} szobába keresünk ${d.players} playert.
-🏆 Rang: ${d.rank}
-🧠 Pozíció: ${d.roles}`;
+🏆 Rang: ${d.elo}
+🧠 Pozíció: ${d.role}
+👤 LFP: ${user}`;
   }
 
-  return `🔊 | Premier room #${d.room} looking for ${d.players} players.
-🏆 Rank: ${d.rank}
-🧠 Roles: ${d.roles}`;
+  return `🔊 | Premier room #${d.room} looking for ${d.players} player.
+🏆 Rank: ${d.elo}
+🧠: Role: ${d.role}
+👤 LFP: ${user}`;
 }
-
