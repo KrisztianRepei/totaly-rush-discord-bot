@@ -19,8 +19,3 @@ client.on("interactionCreate", handleInteraction);
 
 client.login(process.env.DISCORD_TOKEN);
 
-import { checkTwitchStream } from "./utils/twitchChecker.js";
-
-setInterval(() => {
-  checkTwitchStream(client).catch(console.error);
-}, 5 * 60 * 1000); // 5 perc
