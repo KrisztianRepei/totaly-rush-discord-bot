@@ -1,12 +1,18 @@
 import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
 
+/* =======================
+   CACHE / STATE
+======================= */
 export const lfpMessageCache = new Map();
-const reportCooldowns = new Map();
-const reportCounts = new Map();     
-const reportReasons = new Map();    
-const alertedUsers = new Set();     
-const REPORT_EXPIRY_TIME = 7 * 24 * 60 * 60 * 1000; 
 
+const reportCooldowns = new Map(); // userId -> timestamp
+const reportCounts = new Map();    // reportedId -> count
+const reportReasons = new Map();   // reportedId -> [{ reason, time, reporter }]
+const alertedUsers = new Set();    // reportedId
+
+/* =======================
+   CONFIG
+======================= */
 const LFP_CHANNELS = [
   "1467188892863168716",
   "1467199549247328448"
@@ -17,8 +23,37 @@ const ADMIN_REPORT_CHANNEL_ID = process.env.REPORT_ADMIN_CHANNEL_ID;
 const MOD_ROLE_ID = process.env.MOD_ROLE_ID;
 
 const COOLDOWN_TIME = 10 * 60 * 1000; // 10 perc
-const ALERT_THRESHOLD = Number(process.env.REPORT_ALERT_THRESHOLD || 3);
+const REPORT_EXPIRE_TIME =
+  (process.env.REPORT_EXPIRE_DAYS || 7) * 24 * 60 * 60 * 1000;
 
+const REPORT_ALERT_THRESHOLD =
+  Number(process.env.REPORT_ALERT_THRESHOLD || 3);
+
+/* =======================
+   HELPERS
+======================= */
+function cleanExpiredReports(userId) {
+  const list = reportReasons.get(userId);
+  if (!list) return [];
+
+  const now = Date.now();
+  const active = list.filter(r => now - r.time < REPORT_EXPIRE_TIME);
+
+  if (active.length === 0) {
+    reportReasons.delete(userId);
+    reportCounts.delete(userId);
+    alertedUsers.delete(userId);
+  } else {
+    reportReasons.set(userId, active);
+    reportCounts.set(userId, active.length);
+  }
+
+  return active;
+}
+
+/* =======================
+   MAIN HANDLER
+======================= */
 export async function handleMessage(message, client) {
   if (message.author.bot) return;
 
@@ -41,60 +76,19 @@ export async function handleMessage(message, client) {
      REPORT COMMAND
   ======================= */
   if (!message.content.toLowerCase().startsWith("report")) return;
+
   if (message.channel.id !== REPORT_CHANNEL_ID) {
     return message.reply("❌ A report parancs csak a #report szobában használható.");
   }
 
-  const args = message.content.split(" ").slice(1);
   const reported = message.mentions.users.first();
+  const args = message.content.split(" ").slice(1);
   const reason = args.slice(1).join(" ");
 
   if (!reported || !reason) {
     return message.reply("❌ Használat: `report @játékos indok`");
   }
 
-  /* =======================
-   REPORT STATS (ADMIN)
-======================= */
-if (message.content.toLowerCase().startsWith("reportstats")) {
-
-  // 🔐 role check
-  if (!message.member.roles.cache.has(process.env.MOD_ROLE_ID)) {
-    return message.reply("❌ Ehhez a parancshoz nincs jogosultságod.");
-  }
-
-  const reported = message.mentions.users.first();
-  if (!reported) {
-    return message.reply("❌ Használat: `reportstats @játékos`");
-  }
-
-  const reportedId = reported.id;
-  const reasons = reportReasons.get(reportedId) || [];
-  const count = reasons.length;
-
-  if (count === 0) {
-    return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
-  }
-
-  const formattedReasons = reasons
-    .map(r =>
-      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
-    )
-    .join("\n");
-
-  return message.reply(
-`📊 **REPORT STATISZTIKA**
-
-👤 Játékos: ${reported}
-📌 Aktív reportok: **${count}**
-🚨 Alert volt: ${alertedUsers.has(reportedId) ? "Igen" : "Nem"}
-
-📝 **Indokok (1 héten belül):**
-${formattedReasons}`
-  );
-}
-
-  
   // 🚫 önreport tiltás
   if (reported.id === message.author.id) {
     return message.reply("❌ Saját magadat nem jelentheted.");
@@ -107,11 +101,24 @@ ${formattedReasons}`
   }
   reportCooldowns.set(message.author.id, Date.now());
 
+  // 🧹 lejárt reportok törlése
+  cleanExpiredReports(reported.id);
+
+  // 🧠 report mentése
+  const entry = {
+    reason,
+    time: Date.now(),
+    reporter: message.author.id
+  };
+
+  const list = reportReasons.get(reported.id) || [];
+  list.push(entry);
+  reportReasons.set(reported.id, list);
+  reportCounts.set(reported.id, list.length);
+
   const adminChannel = await client.channels.fetch(ADMIN_REPORT_CHANNEL_ID);
 
-  /* =======================
-     REPORT LOG (ADMIN)
-  ======================= */
+  // 📢 admin log
   await adminChannel.send(
 `🚨 **ÚJ JÁTÉKOS REPORT**
 
@@ -123,58 +130,18 @@ ${formattedReasons}`
 ${reason}`
   );
 
-const now = Date.now();
-
-// 🧹 elévült reportok kiszűrése
-const validReasons = (reportReasons.get(reportedId) || [])
-  .filter(r => now - r.time < REPORT_EXPIRY_TIME);
-
-if (validReasons.length === 0) {
-  reportReasons.delete(reportedId);
-  reportCounts.delete(reportedId);
-  alertedUsers.delete(reportedId);
-} else {
-  reportReasons.set(reportedId, validReasons);
-  reportCounts.set(reportedId, validReasons.length);
-}
-  
-  /* =======================
-     REPORT SZÁMLÁLÁS + INDOK GYŰJTÉS
-  ======================= */
-  const reportedId = reported.id;
-
-  const newCount = (reportCounts.get(reportedId) || 0) + 1;
-  reportCounts.set(reportedId, newCount);
-
-  const reasons = reportReasons.get(reportedId) || [];
-  reasons.push({
-  reason,
-  time: Date.now()
-});
-  reportReasons.set(reportedId, reasons);
-
-  /* =======================
-     🚨 AUTOMATIKUS MOD ALERT
-  ======================= */
-  if (newCount >= ALERT_THRESHOLD && !alertedUsers.has(reportedId)) {
-    alertedUsers.add(reportedId);
-
-    const formattedReasons = reasons
-      .map(r => `• ${r.reason}`)
-      .join("\n");
+  // 🚨 automatikus mod ping
+  if (
+    reportCounts.get(reported.id) >= REPORT_ALERT_THRESHOLD &&
+    !alertedUsers.has(reported.id)
+  ) {
+    alertedUsers.add(reported.id);
 
     await adminChannel.send(
-`🚨 **ALERT – TÖBB REPORT**
+`🚨 <@&${MOD_ROLE_ID}> **FIGYELEM!**
 
-👤 Játékos: ${reported}
-📊 Reportok száma: **${newCount}**
-
-📝 **Indokok:**
-${formattedReasons}
-
-⏱ Időpont: <t:${Math.floor(Date.now() / 1000)}:F>
-
-<@&${MOD_ROLE_ID}>`
+👤 ${reported} elérte a **${REPORT_ALERT_THRESHOLD} reportot**
+📌 Automatikus moderátori értesítés.`
     );
   }
 
@@ -183,6 +150,33 @@ ${formattedReasons}
 
   // ✅ visszajelzés
   await message.channel.send({
-    content: `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
+    content:
+      `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
   });
 }
+
+/* =======================
+   ADMIN: REPORT STATS
+======================= */
+export async function handleReportStats(message) {
+  if (!message.content.toLowerCase().startsWith("reportstats")) return;
+
+  if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
+    return message.reply("❌ Nincs jogosultságod.");
+  }
+
+  const reported = message.mentions.users.first();
+  if (!reported) {
+    return message.reply("❌ Használat: `reportstats @játékos`");
+  }
+
+  const active = cleanExpiredReports(reported.id);
+  if (active.length === 0) {
+    return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
+  }
+
+  const reasons = active
+    .map(r =>
+      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
+    )
+    .
