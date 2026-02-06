@@ -19,3 +19,5 @@ client.on("interactionCreate", handleInteraction);
 
 client.login(process.env.DISCORD_TOKEN);
 
+client.on("messageCreate", msg => handleMessage(msg, client));
+
