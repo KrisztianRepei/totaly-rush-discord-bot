@@ -1,15 +1,16 @@
 import { lfpModal } from "../components/lfpModal.js";
 import { buildLfpMessage } from "../utils/lfpTemplates.js";
+import { lfpMessageCache } from "./messageHandler.js";
 
 export async function handleInteraction(interaction) {
 
-  // 🌍 nyelv kiválasztva → modal jön
+  // 🌍 nyelv kiválasztása → modal
   if (interaction.isStringSelectMenu() && interaction.customId === "lfp_language") {
     await interaction.showModal(lfpModal(interaction.values[0]));
     return;
   }
 
-  // 📩 modal elküldve → végső LFP poszt
+  // 📩 modal elküldve
   if (interaction.isModalSubmit() && interaction.customId.startsWith("lfp_modal_")) {
     const lang = interaction.customId.split("_")[2];
 
@@ -20,12 +21,24 @@ export async function handleInteraction(interaction) {
       role: interaction.fields.getTextInputValue("role")
     };
 
-    // töröljük az előző menüs üzenetet
+    // ❌ 1. töröljük az EREDETI "lfp" user üzenetet
+    const originalMessage = lfpMessageCache.get(interaction.user.id);
+    if (originalMessage) {
+      await originalMessage.delete().catch(() => {});
+      lfpMessageCache.delete(interaction.user.id);
+    }
+
+    // ❌ 2. töröljük a nyelvválasztós bot üzenetet
     await interaction.message?.delete().catch(() => {});
 
+    // ✅ végleges LFP poszt
     const text = buildLfpMessage(lang, data, interaction.user);
-
     await interaction.channel.send(text);
-    await interaction.reply({ content: "✅ LFP kiküldve", ephemeral: true });
+
+    // 🔕 csak a user látja
+    await interaction.reply({
+      content: "✅ LFP kiküldve",
+      ephemeral: true
+    });
   }
 }
