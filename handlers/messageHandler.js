@@ -7,10 +7,7 @@ const ALLOWED_CHANNELS = [
 
 export async function handleMessage(message) {
   if (message.author.bot) return;
-
-  // ❗ csak ezekben a szobákban
   if (!ALLOWED_CHANNELS.includes(message.channel.id)) return;
-
   if (message.content.toLowerCase() !== "lfp") return;
 
   await message.reply({
