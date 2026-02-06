@@ -14,10 +14,7 @@ client.once("ready", () => {
   console.log(`ONLINE: ${client.user.tag}`);
 });
 
-client.on("messageCreate", handleMessage);
+client.on("messageCreate", msg => handleMessage(msg, client));
 client.on("interactionCreate", handleInteraction);
 
 client.login(process.env.DISCORD_TOKEN);
-
-client.on("messageCreate", msg => handleMessage(msg, client));
-
