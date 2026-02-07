@@ -157,10 +157,8 @@ ${reason}`
 
 /* =======================
    ADMIN: REPORT STATS
-======================= */    
-export async function handleReportStats(message) {
-  if (!message.content.toLowerCase().startsWith("reportstats")) return;
-
+======================= */
+if (message.content.toLowerCase().startsWith("reportstats")) {
   if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
     return message.reply("❌ Nincs jogosultságod.");
   }
@@ -171,24 +169,22 @@ export async function handleReportStats(message) {
   }
 
   const active = cleanExpiredReports(reported.id);
-
   if (active.length === 0) {
     return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
   }
 
   const reasons = active
     .map(r =>
-      `• ${r.reason} — <t:${Math.floor(r.time / 1000)}:R>`
+      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
     )
     .join("\n");
 
-  await message.reply(
-`📊 **REPORT STATISZTIKA**
+  return message.reply(
+`📊 **Report statisztika – ${reported}**
 
-👤 Játékos: ${reported}
 📌 Aktív reportok: **${active.length}**
 
-📝 **Indokok:**
+📝 Indokok:
 ${reasons}`
   );
 }
