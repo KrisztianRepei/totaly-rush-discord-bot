@@ -1,7 +1,25 @@
 import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
-import { pool } from "../utils/db.js";
+import fs from "fs";
+import path from "path";
 
 export const lfpMessageCache = new Map();
+
+/* =======================
+   FILE STORAGE
+======================= */
+const DATA_DIR = path.resolve("data");
+const REPORT_FILE = path.join(DATA_DIR, "reports.json");
+
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+if (!fs.existsSync(REPORT_FILE)) fs.writeFileSync(REPORT_FILE, "[]");
+
+function loadReports() {
+  return JSON.parse(fs.readFileSync(REPORT_FILE, "utf8"));
+}
+
+function saveReports(data) {
+  fs.writeFileSync(REPORT_FILE, JSON.stringify(data, null, 2));
+}
 
 /* =======================
    CONFIG
@@ -56,31 +74,33 @@ export async function handleMessage(message, client) {
       return message.reply("❌ Használat: `repstats @játékos`");
     }
 
-    const [rows] = await pool.execute(
-      `SELECT reason, created_at
-       FROM reports
-       WHERE reported_id = ?
-       AND created_at > NOW() - INTERVAL ? DAY
-       ORDER BY created_at DESC`,
-      [reported.id, REPORT_EXPIRE_DAYS]
+    const reports = loadReports();
+    const now = Date.now();
+
+    const active = reports.filter(
+      r =>
+        r.reportedId === reported.id &&
+        now - new Date(r.createdAt).getTime() <
+          REPORT_EXPIRE_DAYS * 24 * 60 * 60 * 1000
     );
 
-    if (rows.length === 0) {
+    if (active.length === 0) {
       return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
     }
 
-    const reasons = rows
-      .map(r =>
-        `• ${r.reason} (<t:${Math.floor(
-          new Date(r.created_at).getTime() / 1000
-        )}:R>)`
+    const reasons = active
+      .map(
+        r =>
+          `• ${r.reason} (<t:${Math.floor(
+            new Date(r.createdAt).getTime() / 1000
+          )}:R>)`
       )
       .join("\n");
 
     return message.reply(
 `📊 **Report statisztika – ${reported}**
 
-📌 Aktív reportok: **${rows.length}**
+📌 Aktív reportok: **${active.length}**
 
 📝 Indokok:
 ${reasons}`
@@ -104,49 +124,42 @@ ${reasons}`
     return message.reply("❌ Használat: `report @játékos indok`");
   }
 
-  // 🚫 önreport tiltás
   if (reported.id === message.author.id) {
     return message.reply("❌ Saját magadat nem jelentheted.");
   }
 
-  // ⏱️ cooldown
   const last = reportCooldowns.get(message.author.id);
   if (last && Date.now() - last < COOLDOWN_TIME) {
     return message.reply("⏱️ 10 percenként csak 1 report küldhető.");
   }
   reportCooldowns.set(message.author.id, Date.now());
 
-  // 💾 mentés DB-be
-  await pool.execute(
-    `INSERT INTO reports (reported_id, reporter_id, reason)
-     VALUES (?, ?, ?)`,
-    [reported.id, message.author.id, reason]
-  );
-
-  // 📊 aktív report count
-  const [[{ count }]] = await pool.execute(
-    `SELECT COUNT(*) AS count
-     FROM reports
-     WHERE reported_id = ?
-     AND created_at > NOW() - INTERVAL ? DAY`,
-    [reported.id, REPORT_EXPIRE_DAYS]
-  );
+  const reports = loadReports();
+  reports.push({
+    reportedId: reported.id,
+    reporterId: message.author.id,
+    reason,
+    createdAt: new Date().toISOString()
+  });
+  saveReports(reports);
 
   const adminChannel = await client.channels.fetch(ADMIN_REPORT_CHANNEL_ID);
 
-  // 📢 admin log
   await adminChannel.send(
 `🚨 **ÚJ JÁTÉKOS REPORT**
 
 👤 Jelentett: ${reported}
 🧑 Jelentette: ${message.author}
-🕒 Időpont: <t:${Math.floor(Date.now() / 1000)}:F>
-
-📝 **Indok:**
-${reason}`
+📝 Indok: ${reason}`
   );
 
-  // 🚨 automatikus mod ping
+  const count = reports.filter(
+    r =>
+      r.reportedId === reported.id &&
+      Date.now() - new Date(r.createdAt).getTime() <
+        REPORT_EXPIRE_DAYS * 24 * 60 * 60 * 1000
+  ).length;
+
   if (count >= REPORT_ALERT_THRESHOLD) {
     await adminChannel.send(
 `🚨 <@&${MOD_ROLE_ID}> **FIGYELEM!**
@@ -154,10 +167,7 @@ ${reason}`
     );
   }
 
-  // 🧹 user parancs törlése
   await message.delete().catch(() => {});
-
-  // ✅ visszajelzés
   await message.channel.send(
     `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
   );
