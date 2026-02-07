@@ -5,7 +5,7 @@ import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
 ======================= */
 export const lfpMessageCache = new Map();
 
-const reportCooldowns = new Map(); // userId -> timestamp
+const reportCooldowns = new Map(); // reporterId -> timestamp
 const reportCounts = new Map();    // reportedId -> count
 const reportReasons = new Map();   // reportedId -> [{ reason, time, reporter }]
 const alertedUsers = new Set();    // reportedId
@@ -58,7 +58,7 @@ export async function handleMessage(message, client) {
   if (message.author.bot) return;
 
   /* =======================
-     LFP COMMAND
+     LFP
   ======================= */
   if (
     LFP_CHANNELS.includes(message.channel.id) &&
@@ -73,7 +73,38 @@ export async function handleMessage(message, client) {
   }
 
   /* =======================
-     REPORT COMMAND
+     REPSTATS (ADMIN)
+  ======================= */
+  if (message.content.toLowerCase().startsWith("repstats")) {
+    if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
+      return message.reply("❌ Nincs jogosultságod.");
+    }
+
+    const reported = message.mentions.users.first();
+    if (!reported) {
+      return message.reply("❌ Használat: `repstats @játékos`");
+    }
+
+    const active = cleanExpiredReports(reported.id);
+    if (active.length === 0) {
+      return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
+    }
+
+    const reasons = active
+      .map(r => `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`)
+      .join("\n");
+
+    return message.reply(
+`📊 **Report statisztika – ${reported}**
+
+📌 Aktív reportok: **${active.length}**
+📝 Indokok:
+${reasons}`
+    );
+  }
+
+  /* =======================
+     REPORT
   ======================= */
   if (!message.content.toLowerCase().startsWith("report")) return;
 
@@ -89,22 +120,18 @@ export async function handleMessage(message, client) {
     return message.reply("❌ Használat: `report @játékos indok`");
   }
 
-  // 🚫 önreport tiltás
   if (reported.id === message.author.id) {
     return message.reply("❌ Saját magadat nem jelentheted.");
   }
 
-  // ⏱️ cooldown
   const last = reportCooldowns.get(message.author.id);
   if (last && Date.now() - last < COOLDOWN_TIME) {
     return message.reply("⏱️ 10 percenként csak 1 report küldhető.");
   }
   reportCooldowns.set(message.author.id, Date.now());
 
-  // 🧹 lejárt reportok törlése
   cleanExpiredReports(reported.id);
 
-  // 🧠 report mentése
   const entry = {
     reason,
     time: Date.now(),
@@ -118,7 +145,6 @@ export async function handleMessage(message, client) {
 
   const adminChannel = await client.channels.fetch(ADMIN_REPORT_CHANNEL_ID);
 
-  // 📢 admin log
   await adminChannel.send(
 `🚨 **ÚJ JÁTÉKOS REPORT**
 
@@ -130,7 +156,6 @@ export async function handleMessage(message, client) {
 ${reason}`
   );
 
-  // 🚨 automatikus mod ping
   if (
     reportCounts.get(reported.id) >= REPORT_ALERT_THRESHOLD &&
     !alertedUsers.has(reported.id)
@@ -139,54 +164,12 @@ ${reason}`
 
     await adminChannel.send(
 `🚨 <@&${MOD_ROLE_ID}> **FIGYELEM!**
-
-👤 ${reported} elérte a **${REPORT_ALERT_THRESHOLD} reportot**
-📌 Automatikus moderátori értesítés.`
+👤 ${reported} elérte a **${REPORT_ALERT_THRESHOLD} reportot**`
     );
   }
 
-  // 🧹 user parancs törlése
   await message.delete().catch(() => {});
-
-  // ✅ visszajelzés
-  await message.channel.send({
-    content:
-      `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
-  });
-}
-
-/* =======================
-   ADMIN: REPSTATS
-======================= */
-if (message.content.toLowerCase().startsWith("repstats")) {
-
-  if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
-    return message.reply("❌ Nincs jogosultságod.");
-  }
-
-  const reported = message.mentions.users.first();
-  if (!reported) {
-    return message.reply("❌ Használat: `repstats @játékos`");
-  }
-
-  const active = cleanExpiredReports(reported.id);
-
-  if (active.length === 0) {
-    return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
-  }
-
-  const reasonsText = active
-    .map(r =>
-      `• ${r.reason} — <@${r.reporter}> (<t:${Math.floor(r.time / 1000)}:R>)`
-    )
-    .join("\n");
-
-  return message.reply(
-`📊 **Report statisztika – ${reported}**
-
-🔢 Aktív reportok: **${active.length}**
-
-📝 **Indokok:**
-${reasonsText}`
+  await message.channel.send(
+    `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
   );
 }
