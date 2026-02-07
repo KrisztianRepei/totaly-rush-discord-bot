@@ -13,11 +13,13 @@ const REPORT_CHANNEL_ID = process.env.REPORT_INPUT_CHANNEL_ID;
 const ADMIN_REPORT_CHANNEL_ID = process.env.REPORT_ADMIN_CHANNEL_ID;
 const MOD_ROLE_ID = process.env.MOD_ROLE_ID;
 
-const COOLDOWN_TIME = 10 * 60 * 1000;
+const COOLDOWN_TIME = 10 * 60 * 1000; // 10 perc
 const REPORT_EXPIRE_DAYS = Number(process.env.REPORT_EXPIRE_DAYS || 7);
-const REPORT_ALERT_THRESHOLD =
-  Number(process.env.REPORT_ALERT_THRESHOLD || 3);
+const REPORT_ALERT_THRESHOLD = Number(process.env.REPORT_ALERT_THRESHOLD || 3);
 
+/* =======================
+   STATE
+======================= */
 const reportCooldowns = new Map();
 
 /* =======================
@@ -26,7 +28,9 @@ const reportCooldowns = new Map();
 export async function handleMessage(message, client) {
   if (message.author.bot) return;
 
-  /* ===== LFP ===== */
+  /* =======================
+     LFP
+  ======================= */
   if (
     LFP_CHANNELS.includes(message.channel.id) &&
     message.content.toLowerCase() === "lfp"
@@ -37,7 +41,9 @@ export async function handleMessage(message, client) {
     });
   }
 
-  /* ===== REPSTATS ===== */
+  /* =======================
+     REPSTATS (MOD ONLY)
+  ======================= */
   if (message.content.toLowerCase().startsWith("repstats")) {
     if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
       return message.reply("❌ Nincs jogosultságod.");
@@ -48,11 +54,12 @@ export async function handleMessage(message, client) {
       return message.reply("❌ Használat: `repstats @játékos`");
     }
 
-    const [rows] = await db.execute(
+    const [rows] = await pool.execute(
       `SELECT reason, created_at
        FROM reports
        WHERE reported_id = ?
-       AND created_at > NOW() - INTERVAL ? DAY`,
+       AND created_at > NOW() - INTERVAL ? DAY
+       ORDER BY created_at DESC`,
       [reported.id, REPORT_EXPIRE_DAYS]
     );
 
@@ -62,7 +69,9 @@ export async function handleMessage(message, client) {
 
     const reasons = rows
       .map(r =>
-        `• ${r.reason} (<t:${Math.floor(new Date(r.created_at).getTime() / 1000)}:R>)`
+        `• ${r.reason} (<t:${Math.floor(
+          new Date(r.created_at).getTime() / 1000
+        )}:R>)`
       )
       .join("\n");
 
@@ -76,8 +85,11 @@ ${reasons}`
     );
   }
 
-  /* ===== REPORT ===== */
+  /* =======================
+     REPORT
+  ======================= */
   if (!message.content.toLowerCase().startsWith("report")) return;
+
   if (message.channel.id !== REPORT_CHANNEL_ID) {
     return message.reply("❌ A report parancs csak a #report szobában használható.");
   }
@@ -90,23 +102,27 @@ ${reasons}`
     return message.reply("❌ Használat: `report @játékos indok`");
   }
 
+  // 🚫 önreport tiltás
   if (reported.id === message.author.id) {
     return message.reply("❌ Saját magadat nem jelentheted.");
   }
 
+  // ⏱️ cooldown
   const last = reportCooldowns.get(message.author.id);
   if (last && Date.now() - last < COOLDOWN_TIME) {
     return message.reply("⏱️ 10 percenként csak 1 report küldhető.");
   }
   reportCooldowns.set(message.author.id, Date.now());
 
-  await db.execute(
+  // 💾 mentés DB-be
+  await pool.execute(
     `INSERT INTO reports (reported_id, reporter_id, reason)
      VALUES (?, ?, ?)`,
     [reported.id, message.author.id, reason]
   );
 
-  const [[{ count }]] = await db.execute(
+  // 📊 aktív report count
+  const [[{ count }]] = await pool.execute(
     `SELECT COUNT(*) AS count
      FROM reports
      WHERE reported_id = ?
@@ -116,14 +132,19 @@ ${reasons}`
 
   const adminChannel = await client.channels.fetch(ADMIN_REPORT_CHANNEL_ID);
 
+  // 📢 admin log
   await adminChannel.send(
 `🚨 **ÚJ JÁTÉKOS REPORT**
 
 👤 Jelentett: ${reported}
 🧑 Jelentette: ${message.author}
-📝 Indok: ${reason}`
+🕒 Időpont: <t:${Math.floor(Date.now() / 1000)}:F>
+
+📝 **Indok:**
+${reason}`
   );
 
+  // 🚨 automatikus mod ping
   if (count >= REPORT_ALERT_THRESHOLD) {
     await adminChannel.send(
 `🚨 <@&${MOD_ROLE_ID}> **FIGYELEM!**
@@ -131,7 +152,10 @@ ${reasons}`
     );
   }
 
+  // 🧹 user parancs törlése
   await message.delete().catch(() => {});
+
+  // ✅ visszajelzés
   await message.channel.send(
     `✅ **Köszönjük a reportot!** Hamarosan kivizsgáljuk.\n👤 Reportolta: ${message.author}`
   );
