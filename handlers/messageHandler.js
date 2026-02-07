@@ -1,6 +1,8 @@
 import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
 import { pool } from "../utils/db.js";
 
+export const lfpMessageCache = new Map();
+
 /* =======================
    CONFIG
 ======================= */
