@@ -158,7 +158,9 @@ ${reason}`
 /* =======================
    ADMIN: REPORT STATS
 ======================= */
-if (message.content.toLowerCase().startsWith("reportstats")) {
+export async function handleReportStats(message) {
+  if (!message.content.toLowerCase().startsWith("reportstats")) return;
+
   if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
     return message.reply("❌ Nincs jogosultságod.");
   }
@@ -184,7 +186,8 @@ if (message.content.toLowerCase().startsWith("reportstats")) {
 
 📌 Aktív reportok: **${active.length}**
 
-📝 Indokok:
+📝 **Indokok:**
 ${reasons}`
   );
 }
+
