@@ -5,7 +5,7 @@ import mysql from "mysql2/promise";
 ======================= */
 export const pool = mysql.createPool({
   host: process.env.MYSQLHOST,
-  port: Number(process.env.MYSQLPORT),
+  port: Number(process.env.MYSQLPORT || 3306),
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
@@ -13,6 +13,7 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  timezone: "Z"
 });
 
 /* =======================
@@ -28,6 +29,5 @@ export async function testDbConnection() {
   } catch (err) {
     console.error("❌ MySQL kapcsolat HIBA");
     console.error(err.message);
-    process.exit(1);
   }
 }
