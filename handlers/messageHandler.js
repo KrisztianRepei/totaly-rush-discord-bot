@@ -1,5 +1,5 @@
 import { lfpLanguageMenu } from "../components/lfpLanguageMenu.js";
-import { db } from "../utils/db.js";
+import { pool } from "../utils/db.js";
 
 /* =======================
    CONFIG
