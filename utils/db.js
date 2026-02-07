@@ -1,19 +1,18 @@
 import mysql from "mysql2/promise";
 
 /* =======================
-   MYSQL POOL
+   MYSQL POOL (Railway)
 ======================= */
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
+  host: process.env.MYSQLHOST,
+  port: Number(process.env.MYSQLPORT),
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
 
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: "Z"
 });
 
 /* =======================
@@ -25,9 +24,10 @@ export async function testDbConnection() {
     await conn.query("SELECT 1");
     conn.release();
 
-    console.log("✅ MySQL kapcsolat OK");
+    console.log("✅ MySQL kapcsolat OK (Railway)");
   } catch (err) {
     console.error("❌ MySQL kapcsolat HIBA");
     console.error(err.message);
+    process.exit(1);
   }
 }
