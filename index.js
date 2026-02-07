@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import { handleMessage } from "./handlers/messageHandler.js";
 import { handleInteraction } from "./handlers/interactionHandler.js";
+import { testDbConnection } from "./utils/db.js"; // 👈 EZ AZ ÚJ
 
 const client = new Client({
   intents: [
@@ -10,8 +11,11 @@ const client = new Client({
   ]
 });
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`ONLINE: ${client.user.tag}`);
+
+  // ✅ MySQL kapcsolat ellenőrzés induláskor
+  await testDbConnection();
 });
 
 client.on("messageCreate", msg => handleMessage(msg, client));
