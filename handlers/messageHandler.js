@@ -159,7 +159,7 @@ ${reason}`
    ADMIN: REPORT STATS
 ======================= */
 export async function handleReportStats(message) {
-  if (!message.content.toLowerCase().startsWith("reportstats")) return;
+  if (!message.content.toLowerCase().startsWith("reptstats")) return;
 
   if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
     return message.reply("❌ Nincs jogosultságod.");
@@ -167,7 +167,7 @@ export async function handleReportStats(message) {
 
   const reported = message.mentions.users.first();
   if (!reported) {
-    return message.reply("❌ Használat: `reportstats @játékos`");
+    return message.reply("❌ Használat: `reptstats @játékos`");
   }
 
   const active = cleanExpiredReports(reported.id);
