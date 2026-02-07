@@ -1,7 +1,7 @@
 {
   "name": "totaly-rush-discord-bot",
   "version": "1.0.0",
-  "description": "CS2 Discord bot with LFP, report system and MySQL storage",
+  "description": "CS2 Discord bot with LFP and report system",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,6 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "mysql2": "^3.9.0"
+    "discord.js": "^14.14.1"
   }
 }
