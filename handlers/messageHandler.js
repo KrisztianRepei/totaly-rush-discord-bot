@@ -156,10 +156,9 @@ ${reason}`
 }
 
 /* =======================
-   ADMIN: REPORT STATS
+   ADMIN: REPSTATS
 ======================= */
-export async function handleReportStats(message) {
-  if (!message.content.toLowerCase().startsWith("reptstats")) return;
+if (message.content.toLowerCase().startsWith("repstats")) {
 
   if (!message.member.roles.cache.has(MOD_ROLE_ID)) {
     return message.reply("❌ Nincs jogosultságod.");
@@ -167,27 +166,27 @@ export async function handleReportStats(message) {
 
   const reported = message.mentions.users.first();
   if (!reported) {
-    return message.reply("❌ Használat: `reptstats @játékos`");
+    return message.reply("❌ Használat: `repstats @játékos`");
   }
 
   const active = cleanExpiredReports(reported.id);
+
   if (active.length === 0) {
     return message.reply(`ℹ️ ${reported} játékosnak nincs aktív reportja.`);
   }
 
-  const reasons = active
+  const reasonsText = active
     .map(r =>
-      `• ${r.reason} (<t:${Math.floor(r.time / 1000)}:R>)`
+      `• ${r.reason} — <@${r.reporter}> (<t:${Math.floor(r.time / 1000)}:R>)`
     )
     .join("\n");
 
   return message.reply(
 `📊 **Report statisztika – ${reported}**
 
-📌 Aktív reportok: **${active.length}**
+🔢 Aktív reportok: **${active.length}**
 
 📝 **Indokok:**
-${reasons}`
+${reasonsText}`
   );
 }
-
