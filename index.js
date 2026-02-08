@@ -1,6 +1,8 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import { handleMessage } from "./handlers/messageHandler.js";
 import { handleInteraction } from "./handlers/interactionHandler.js";
+import { ticketMenu } from "./components/ticketMenu.js";
+
 
 const client = new Client({
   intents: [
