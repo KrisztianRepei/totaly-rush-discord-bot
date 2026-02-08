@@ -1,6 +1,8 @@
 import { lfpModal } from "../components/lfpModal.js";
 import { buildLfpMessage } from "../utils/lfpTemplates.js";
 import { lfpMessageCache } from "./messageHandler.js";
+import {ChannelType,PermissionFlagsBits} from "discord.js";
+
 
 export async function handleInteraction(interaction) {
 
