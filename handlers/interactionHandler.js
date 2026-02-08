@@ -16,11 +16,11 @@ import {
 const activeTickets = new Map(); // userId -> channelId
 
 /* =======================
-   HELPERS
+   CONFIG
 ======================= */
-const STAFF_ROLE_IDS = process.env.MOD_ROLE_IDS
-  ? process.env.MOD_ROLE_IDS.split(",").map(id => id.trim())
-  : [];
+const STAFF_ROLE_ID = process.env.MOD_ROLE_ID;
+const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID || null;
+const TICKET_LOG_CHANNEL_ID = process.env.TICKET_LOG_CHANNEL_ID || null;
 
 /* =======================
    CLOSE BUTTON
@@ -105,20 +105,11 @@ export async function handleInteraction(interaction) {
       });
     }
 
-    const CATEGORY_ID = process.env.TICKET_CATEGORY_ID || null;
-
-    const staffPermissions = STAFF_ROLE_IDS.map(roleId => ({
-      id: roleId,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages
-      ]
-    }));
-
     const channel = await guild.channels.create({
       name: `ticket-${user.username}`.toLowerCase(),
       type: ChannelType.GuildText,
-      parent: CATEGORY_ID,
+      parent: TICKET_CATEGORY_ID,
+      topic: `TicketOwner:${user.id}`,
       permissionOverwrites: [
         {
           id: guild.id,
@@ -131,11 +122,16 @@ export async function handleInteraction(interaction) {
             PermissionFlagsBits.SendMessages
           ]
         },
-        ...staffPermissions
+        {
+          id: STAFF_ROLE_ID,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages
+          ]
+        }
       ]
     });
 
-    // mentjük az aktív ticketet
     activeTickets.set(user.id, channel.id);
 
     await channel.send(
@@ -147,12 +143,11 @@ export async function handleInteraction(interaction) {
 Kérlek írd le részletesen a problémád.`
     );
 
-    // 🔴 LIVE REPORT → automatikus staff ping
+    // 🔴 LIVE REPORT → azonnali staff ping
     if (type === "Live Report") {
-      const staffPing = STAFF_ROLE_IDS.map(id => `<@&${id}>`).join(" ");
       await channel.send(
 `🔴 **LIVE REPORT**
-${staffPing}
+<@&${STAFF_ROLE_ID}>
 
 ⚠️ Azonnali moderátori figyelmet igényel!`
       );
@@ -180,30 +175,27 @@ ${staffPing}
   ) {
     const channel = interaction.channel;
     const member = interaction.member;
+    const userId = interaction.user.id;
 
-    const isStaff = member.roles.cache.some(r =>
-      STAFF_ROLE_IDS.includes(r.id)
-    );
+    const isStaff = member.roles.cache.has(STAFF_ROLE_ID);
 
-    if (!isStaff) {
+    const topic = channel.topic || "";
+    const ownerMatch = topic.match(/TicketOwner:(\d+)/);
+    const ownerId = ownerMatch ? ownerMatch[1] : null;
+    const isOwner = ownerId === userId;
+
+    if (!isStaff && !isOwner) {
       return interaction.reply({
-        content: "❌ Csak staff zárhatja le a ticketet.",
+        content: "❌ Csak a ticket tulajdonosa vagy staff zárhatja le.",
         ephemeral: true
       });
     }
 
-    // töröljük az aktív ticketet
-    for (const [userId, channelId] of activeTickets.entries()) {
-      if (channelId === channel.id) {
-        activeTickets.delete(userId);
-        break;
-      }
-    }
+    if (ownerId) activeTickets.delete(ownerId);
 
-    const logChannelId = process.env.TICKET_LOG_CHANNEL_ID;
-    if (logChannelId) {
+    if (TICKET_LOG_CHANNEL_ID) {
       const logChannel = await interaction.guild.channels
-        .fetch(logChannelId)
+        .fetch(TICKET_LOG_CHANNEL_ID)
         .catch(() => null);
 
       if (logChannel) {
@@ -211,13 +203,14 @@ ${staffPing}
 `📕 **Ticket lezárva**
 
 📂 Csatorna: ${channel.name}
-👤 Zárta: ${interaction.user}`
+👤 Zárta: ${interaction.user}
+👑 Tulaj: <@${ownerId}>`
         );
       }
     }
 
     await interaction.reply({
-      content: "✅ Ticket lezárva. A csatorna törlődik.",
+      content: "🔒 Ticket lezárva. A csatorna törlődik.",
       ephemeral: true
     });
 
