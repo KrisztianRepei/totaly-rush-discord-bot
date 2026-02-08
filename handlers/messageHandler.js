@@ -55,6 +55,7 @@ export async function handleMessage(message, client) {
     LFP_CHANNELS.includes(message.channel.id) &&
     message.content.toLowerCase() === "lfp"
   ) {
+     lfpMessageCache.set(message.author.id, message);
     return message.reply({
       content: "🌍 Válaszd ki a nyelvet / Choose language",
       components: [lfpLanguageMenu]
